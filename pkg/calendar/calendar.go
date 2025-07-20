@@ -115,7 +115,7 @@ func InitialModel() CalendarModel {
 	// Find the first day of the month (0=Sunday, 6=Saturday)
 	dayOfWeek := int(firstDay.Weekday())
 	for day := range dayOfWeek {
-		model.days[0][day] = true // blank days before first day
+		model.days[0][day] = false // blank days before first day
 	}
 	for i := 0; i < model.daysInMonth-1; i++ {
 		// Calculate the row and column
@@ -128,6 +128,7 @@ func InitialModel() CalendarModel {
 
 // Update handles messages
 func (m CalendarModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	lastDay := time.Date(m.currentYear, m.currentMonth+1, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, -1)
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
@@ -154,6 +155,7 @@ func (m CalendarModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m CalendarModel) Init() tea.Cmd {
+	m.updateDays()
 	return nil
 }
 
@@ -182,6 +184,7 @@ func (m *CalendarModel) SelectDate() {
 
 // updateDays builds the calendar grid
 func (model *CalendarModel) updateDays() {
+	// Get the first day of the month
 	firstDay := time.Date(model.currentYear, model.currentMonth, 1, 0, 0, 0, 0, time.UTC)
 	lastDay := time.Date(model.currentYear, model.currentMonth+1, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, -1)
 
@@ -192,9 +195,9 @@ func (model *CalendarModel) updateDays() {
 	// Find the first day of the month (0=Sunday, 6=Saturday)
 	dayOfWeek := int(firstDay.Weekday())
 	for day := range dayOfWeek {
-		model.days[0][day] = true // blank days before first day
+		model.days[0][day] = false // blank days before first day
 	}
-	for i := 0; i < model.daysInMonth-1; i++ {
+	for i := 0; i < model.daysInMonth; i++ {
 		// Calculate the row and column
 		row := (i + dayOfWeek) / 7
 		col := (i + dayOfWeek) % 7
@@ -208,22 +211,24 @@ func (m CalendarModel) View() string {
 
 	// Title
 	sb = append(sb, fmt.Sprintf("Calendar - %s %d\n", m.monthName, m.currentYear)...)
-	sb = append(sb, "----------------------------------------\n"...)
+	sb = append(sb, "----------------------------------\n"...)
 	sb = append(sb, "Sun Mon Tue Wed Thu Fri Sat\n"...)
-	sb = append(sb, "----------------------------------------\n"...)
+	sb = append(sb, "----------------------------------\n"...)
 
 	// Print the days
+	dayPrinted := 1
 	for i := range m.days {
 		for j := range m.days[i] {
 			if m.days[i][j] {
 				// Highlight selected day
-				if i*7+j+1 == m.currentDay {
-					sb = append(sb, fmt.Sprintf("\x1b[1;32m%d\x1b[0m ", i*7+j+1)...)
+				if dayPrinted == m.currentDay {
+					sb = append(sb, fmt.Sprintf("\x1b[1;32m%3d\x1b[0m ", dayPrinted)...)
 				} else {
-					sb = append(sb, fmt.Sprintf("%d ", i*7+j+1)...)
+					sb = append(sb, fmt.Sprintf("%3d ", dayPrinted)...)
 				}
+				dayPrinted += 1
 			} else {
-				sb = append(sb, ' ')
+				sb = append(sb, "    "...)
 			}
 		}
 		sb = append(sb, "\n"...)
