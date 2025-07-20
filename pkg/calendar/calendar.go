@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -12,6 +13,28 @@ type Date struct {
 	Year  int
 	Month int
 	Day   int
+}
+
+// Define keybindings for the calendar
+type keyMap struct {
+	nextMonth key.Binding
+	prevMonth key.Binding
+	nextDay   key.Binding
+	prevDay   key.Binding
+	nextWeek  key.Binding
+	prevWeek  key.Binding
+	selectDay key.Binding
+	quit      key.Binding
+}
+
+func (k keyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{k.nextMonth, k.prevMonth, k.selectDay, k.quit},
+	}
+}
+
+func (k keyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.nextMonth, k.prevMonth, k.selectDay, k.quit}
 }
 
 // CalendarModel holds the state of the calendar
@@ -23,12 +46,50 @@ type CalendarModel struct {
 	monthName    string
 	daysInMonth  int
 	days         [][]bool
-	selectedDay  int
+	currentDay   int
+	keyMap       keyMap
 }
 
 // InitialModel creates a new calendar model for the current month
 func InitialModel() CalendarModel {
 	t := time.Now()
+
+	// Define keybindings
+	keyMap := keyMap{
+		nextMonth: key.NewBinding(
+			key.WithKeys("n"),
+			key.WithHelp("n", "next month"),
+		),
+		prevMonth: key.NewBinding(
+			key.WithKeys("p"),
+			key.WithHelp("p", "previous month"),
+		),
+		nextDay: key.NewBinding(
+			key.WithKeys("l", "right"),
+			key.WithHelp("l", "next day"),
+		),
+		prevDay: key.NewBinding(
+			key.WithKeys("h", "left"),
+			key.WithHelp("h", "previous day"),
+		),
+		nextWeek: key.NewBinding(
+			key.WithKeys("j", "down"),
+			key.WithHelp("j", "next week"),
+		),
+		prevWeek: key.NewBinding(
+			key.WithKeys("k", "up"),
+			key.WithHelp("j", "previous week"),
+		),
+		selectDay: key.NewBinding(
+			key.WithKeys("s", " "),
+			key.WithHelp("s / space", "select day"),
+		),
+		quit: key.NewBinding(
+			key.WithKeys("q", "esc"),
+			key.WithHelp("q / esc", "quit"),
+		),
+	}
+
 	model := CalendarModel{
 		currentMonth: t.Month(),
 		currentYear:  t.Year(),
@@ -39,8 +100,9 @@ func InitialModel() CalendarModel {
 		},
 		currentView: "month",
 		monthName:   t.Month().String(),
-		selectedDay: t.Day(),
+		currentDay:  t.Day(),
 		days:        make([][]bool, 6),
+		keyMap:      keyMap,
 	}
 	// Get the first day of the month
 	firstDay := time.Date(model.currentYear, model.currentMonth, 1, 0, 0, 0, 0, time.UTC)
@@ -68,15 +130,23 @@ func InitialModel() CalendarModel {
 func (m CalendarModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "n":
+		switch {
+		case key.Matches(msg, m.keyMap.nextMonth):
 			m.NextMonth()
-		case "p":
+		case key.Matches(msg, m.keyMap.prevMonth):
 			m.PreviousMonth()
-		case "s":
+		case key.Matches(msg, m.keyMap.nextDay):
+			m.currentDay += 1
+		case key.Matches(msg, m.keyMap.prevDay):
+			m.currentDay -= 1
+		case key.Matches(msg, m.keyMap.nextWeek):
+			m.currentDay += 7
+		case key.Matches(msg, m.keyMap.prevWeek):
+			m.currentDay -= 7
+		case key.Matches(msg, m.keyMap.selectDay):
 			m.SelectDate()
-		case " ":
-			m.SelectDate()
+		case key.Matches(msg, m.keyMap.quit):
+			return m, tea.Quit
 		}
 		return m, nil
 	}
@@ -107,7 +177,7 @@ func (m *CalendarModel) PreviousMonth() {
 
 // SelectDate selects the current day
 func (m *CalendarModel) SelectDate() {
-	m.selectedDate.Day = m.selectedDay
+	m.selectedDate.Day = m.currentDay
 }
 
 // updateDays builds the calendar grid
@@ -147,7 +217,7 @@ func (m CalendarModel) View() string {
 		for j := range m.days[i] {
 			if m.days[i][j] {
 				// Highlight selected day
-				if i*7+j+1 == m.selectedDay {
+				if i*7+j+1 == m.currentDay {
 					sb = append(sb, fmt.Sprintf("\x1b[1;32m%d\x1b[0m ", i*7+j+1)...)
 				} else {
 					sb = append(sb, fmt.Sprintf("%d ", i*7+j+1)...)
