@@ -35,7 +35,6 @@ type CalendarModel struct {
 	currentMonth time.Month
 	currentYear  int
 	currentView  string
-	monthName    string
 	daysInMonth  int
 	days         [][]bool
 	selectedDay  time.Time
@@ -85,7 +84,6 @@ func InitialModel() CalendarModel {
 	model := CalendarModel{
 		currentMonth: t.Month(),
 		currentYear:  t.Year(),
-		monthName:    t.Month().String(),
 		selectedDay:  t,
 		days:         make([][]bool, 7),
 		keyMap:       keyMap,
@@ -95,14 +93,13 @@ func InitialModel() CalendarModel {
 
 // Update handles messages
 func (m CalendarModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	initialDate := m.selectedDay
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keyMap.nextMonth):
-			m.NextMonth()
+			m.selectedDay = m.selectedDay.AddDate(0, 1, 0)
 		case key.Matches(msg, m.keyMap.prevMonth):
-			m.PreviousMonth()
+			m.selectedDay = m.selectedDay.AddDate(0, -1, 0)
 		case key.Matches(msg, m.keyMap.nextDay):
 			m.selectedDay = m.selectedDay.AddDate(0, 0, 1)
 		case key.Matches(msg, m.keyMap.prevDay):
@@ -124,24 +121,6 @@ func (m CalendarModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m CalendarModel) Init() tea.Cmd {
 	m.updateDays()
 	return nil
-}
-
-// NextMonth moves to the next month
-func (m *CalendarModel) NextMonth() {
-	nextMonth := time.Date(m.currentYear, m.currentMonth+1, 1, 0, 0, 0, 0, time.UTC)
-	m.currentMonth = nextMonth.Month()
-	m.currentYear = nextMonth.Year()
-	m.monthName = nextMonth.Month().String()
-	m.updateDays()
-}
-
-// PreviousMonth moves to the previous month
-func (m *CalendarModel) PreviousMonth() {
-	prevMonth := time.Date(m.currentYear, m.currentMonth-1, 1, 0, 0, 0, 0, time.UTC)
-	m.currentMonth = prevMonth.Month()
-	m.currentYear = prevMonth.Year()
-	m.monthName = prevMonth.Month().String()
-	m.updateDays()
 }
 
 // updateDays builds the calendar grid
@@ -172,7 +151,7 @@ func (m CalendarModel) View() string {
 	var sb []byte
 
 	// Title
-	sb = append(sb, fmt.Sprintf("Calendar - %s %d\n", m.monthName, m.currentYear)...)
+	sb = append(sb, fmt.Sprintf("Calendar - %s %d\n", m.currentMonth.String(), m.currentYear)...)
 	sb = append(sb, "----------------------------------\n"...)
 	sb = append(sb, "Sun Mon Tue Wed Thu Fri Sat\n"...)
 	sb = append(sb, "----------------------------------\n"...)
